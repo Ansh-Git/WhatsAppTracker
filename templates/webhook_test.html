@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twilio Webhook Simulator</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <style>
+        body { padding: 20px; }
+        pre { background-color: #282c34; padding: 15px; border-radius: 5px; overflow: auto; }
+    </style>
+</head>
+<body data-bs-theme="dark">
+    <div class="container">
+        <h1 class="mb-4">Twilio Webhook Simulator</h1>
+        <p class="lead">Use this form to simulate Twilio webhooks and test your ACPL Cargo tracking</p>
+        
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Send Test Message</h5>
+                <form id="webhookForm">
+                    <div class="mb-3">
+                        <label for="phoneNumber" class="form-label">Your Phone Number:</label>
+                        <input type="text" class="form-control" id="phoneNumber" value="+1234567890" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="messageBody" class="form-label">Message Text:</label>
+                        <input type="text" class="form-control" id="messageBody" value="TRACK 2504500644" required>
+                        <div class="form-text">Try "TRACK 2504500644" or "HELP"</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Send Test Webhook</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Result:</h5>
+                <div class="alert alert-info" id="statusMessage">Ready to test. Submit the form to send a simulated Twilio webhook.</div>
+                <div class="mb-3">
+                    <h6>Response:</h6>
+                    <pre id="responseData">No response yet</pre>
+                </div>
+                <h6>Sent Data:</h6>
+                <pre id="sentData">No data sent yet</pre>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('webhookForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            const messageBody = document.getElementById('messageBody').value;
+            
+            // Create Twilio-like POST data
+            const formData = new FormData();
+            formData.append('From', 'whatsapp:' + phoneNumber);
+            formData.append('Body', messageBody);
+            formData.append('MessageSid', 'SM' + Math.random().toString(36).substring(2, 15));
+            formData.append('AccountSid', 'AC' + Math.random().toString(36).substring(2, 15));
+            formData.append('NumMedia', '0');
+            formData.append('ProfileName', 'Test User');
+            
+            const statusMessage = document.getElementById('statusMessage');
+            const responseData = document.getElementById('responseData');
+            const sentData = document.getElementById('sentData');
+            
+            // Display the sent data
+            const sentDataObj = {};
+            for(const pair of formData.entries()) {
+                sentDataObj[pair[0]] = pair[1];
+            }
+            sentData.textContent = JSON.stringify(sentDataObj, null, 2);
+            
+            statusMessage.textContent = 'Sending webhook...';
+            statusMessage.className = 'alert alert-warning';
+            
+            // Send the webhook to our local webhook endpoint
+            fetch('/webhook', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    statusMessage.textContent = 'Webhook sent successfully! Tracking response should be visible in logs.';
+                    statusMessage.className = 'alert alert-success';
+                    return response.text();
+                } else {
+                    throw new Error('Server responded with ' + response.status);
+                }
+            })
+            .then(data => {
+                responseData.textContent = data || '(No response body)';
+                
+                // Also check the database for the response that would have been sent via Twilio
+                setTimeout(() => {
+                    fetch('/api/messages?limit=1')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.messages && data.messages.length > 0) {
+                            const outgoingMessages = data.messages.filter(msg => 
+                                msg.direction === 'outgoing' && 
+                                msg.contact.phone_number === phoneNumber.replace('whatsapp:', '')
+                            );
+                            
+                            if (outgoingMessages.length > 0) {
+                                const latestMessage = outgoingMessages[0];
+                                statusMessage.textContent = 'Response that would be sent via WhatsApp:';
+                                responseData.textContent = latestMessage.content;
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error getting messages:', error);
+                    });
+                }, 1000);
+            })
+            .catch(error => {
+                statusMessage.textContent = 'Error: ' + error.message;
+                statusMessage.className = 'alert alert-danger';
+                responseData.textContent = error.toString();
+            });
+        });
+    </script>
+</body>
+</html>
