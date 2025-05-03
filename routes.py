@@ -276,6 +276,13 @@ def webhook():
                 # Twilio webhook data comes as form data
                 data = request.form.to_dict()
                 logger.debug(f"Received Twilio webhook data: {data}")
+                
+                # Verify that this is a genuine Twilio request
+                from twilio_api import verify_twilio_webhook_signature
+                if not verify_twilio_webhook_signature(request):
+                    logger.warning("Invalid Twilio webhook signature")
+                    return jsonify({'error': 'Invalid signature'}), 403
+                
             else:
                 # Meta WhatsApp format (JSON)
                 data = request.json
@@ -286,7 +293,8 @@ def webhook():
             
             # For Twilio, return a TwiML response (XML)
             if request.form and 'Body' in request.form:
-                # No response for now, we'll handle responses separately
+                # Return a simple 204 No Content response
+                # We'll handle responses asynchronously to avoid Twilio's 10s timeout
                 return ('', 204)
             else:
                 # For other webhook formats, return JSON
