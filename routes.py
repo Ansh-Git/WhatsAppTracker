@@ -307,8 +307,12 @@ def process_incoming_message(data):
                     db.session.add(message)
                     db.session.commit()
                     
-                    # Process automations
-                    check_automations(contact, content)
+                    # Check for tracking commands
+                    if content.strip().upper().startswith('TRACK '):
+                        process_tracking_command(contact, content)
+                    else:
+                        # Process automations for non-tracking messages
+                        check_automations(contact, content)
                     
                     # Update statistics
                     update_stats(contact, 'incoming')
@@ -357,6 +361,56 @@ def check_automations(contact, message_content):
             except Exception as e:
                 db.session.rollback()
                 logger.error(f"Error triggering automation: {str(e)}")
+
+def process_tracking_command(contact, message_content):
+    """Process a tracking command from a WhatsApp message"""
+    try:
+        # Extract the tracking number from the message
+        tracking_parts = message_content.strip().split(' ', 1)
+        if len(tracking_parts) < 2 or not tracking_parts[1].strip():
+            # No tracking number provided
+            response = "⚠️ Please provide a tracking number. Example: TRACK 1234567890"
+        else:
+            tracking_number = tracking_parts[1].strip()
+            
+            # Import the tracking function
+            from acpl_tracker import track_acpl_cargo, format_tracking_result
+            
+            # Get tracking information
+            logger.info(f"Tracking ACPL cargo number: {tracking_number}")
+            tracking_result = track_acpl_cargo(tracking_number)
+            
+            # Format the response
+            response = format_tracking_result(tracking_result)
+        
+        # Send the response
+        send_message(contact.phone_number, response)
+        
+        # Log the outgoing message
+        message = Message(
+            contact=contact,
+            content=response,
+            direction='outgoing',
+            message_type='text',
+            status='sent'
+        )
+        db.session.add(message)
+        db.session.commit()
+        
+        # Update statistics
+        update_stats(contact, 'outgoing')
+        
+        logger.info(f"Sent tracking response to {contact.phone_number}")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error processing tracking command: {str(e)}")
+        
+        # Send error message
+        try:
+            error_message = f"❌ Error processing tracking request: {str(e)}"
+            send_message(contact.phone_number, error_message)
+        except:
+            logger.error("Failed to send error message to user")
 
 def update_stats(contact, direction):
     """Update message statistics"""

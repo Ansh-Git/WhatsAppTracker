@@ -33,6 +33,27 @@ db.init_app(app)
 with app.app_context():
     # Import models so their tables will be created
     import models  # noqa: F401
+    from models import Automation
 
     db.create_all()
     logger.info("Database tables created")
+    
+    # Create default automations if they don't exist
+    if Automation.query.filter_by(trigger_type='keyword', trigger_value='help').count() == 0:
+        help_automation = Automation(
+            name="Help Command",
+            trigger_type="keyword",
+            trigger_value="help",
+            response_text=(
+                "📱 *WhatsApp Tracking Bot Help*\n\n"
+                "Here are commands you can use:\n\n"
+                "*TRACK <number>* - Track an ACPL cargo shipment\n"
+                "Example: TRACK 1234567890\n\n"
+                "*HELP* - Show this help message\n\n"
+                "Need more assistance? Contact support."
+            ),
+            is_active=True
+        )
+        db.session.add(help_automation)
+        db.session.commit()
+        logger.info("Created default HELP automation")
