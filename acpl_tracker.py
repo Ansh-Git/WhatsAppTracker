@@ -1,7 +1,6 @@
 import logging
 import requests
 from bs4 import BeautifulSoup
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +16,7 @@ def track_acpl_cargo(tracking_number):
     """
     # Step 1: Go to the ACPL tracking page
     base_url = "https://acplcargo.com/GCTRACKING.php"
-    api_url = "https://acplcargo.com/poc.php"  # This is the actual API endpoint used for tracking
+    api_url = "https://acplcargo.com/poc.php"  # This is the API endpoint called by searchGC() function
     
     try:
         # Create a session to maintain cookies
@@ -28,16 +27,17 @@ def track_acpl_cargo(tracking_number):
         initial_response = session.get(base_url)
         initial_response.raise_for_status()
         
-        # Now, submit the tracking number directly to the API endpoint that's used by their JavaScript
+        # Now, submit the tracking number directly to the API endpoint that's used by searchGC()
         logger.info(f"Submitting tracking number: {tracking_number}")
         
-        # The correct parameter is 'gcnumber' based on the JavaScript code
+        # The correct parameter is 'gcnumber' based on the form and JavaScript code
         payload = {
-            'gcnumber': tracking_number,
-            'etransGCNumber': '',
+            'gcnumber': tracking_number,  # This matches the form field id="gcnumber"
+            'etransGCNumber': '',         # These additional parameters are in the JavaScript
             'mode': ''
         }
         
+        # Headers to simulate a browser request
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
             'Origin': 'https://acplcargo.com',
@@ -46,8 +46,8 @@ def track_acpl_cargo(tracking_number):
             'Content-Type': 'application/x-www-form-urlencoded'
         }
         
-        # Submit the tracking request to the API
-        logger.info(f"Sending request to {api_url}")
+        # Submit the tracking request to the API (simulating the searchGC() function)
+        logger.info(f"Sending AJAX request to {api_url}")
         response = session.post(api_url, data=payload, headers=headers)
         response.raise_for_status()
         
@@ -57,7 +57,7 @@ def track_acpl_cargo(tracking_number):
         logger.info("Saved tracking response to tracking_response.html")
         
         # Check if tracking info is found
-        if "No Tracking Information available" in response.text:
+        if "No Tracking Information available" in response.text or "No Record Found" in response.text:
             return {
                 "success": False,
                 "message": f"No tracking information found for number {tracking_number}"
@@ -72,9 +72,9 @@ def track_acpl_cargo(tracking_number):
             "GC Number": tracking_number
         }
         
-        # Try to extract tracking information from the page
+        # Extract information from the tracking results
         
-        # Look for tables which typically contain tracking information
+        # 1. First check for tables (most common format for shipping info)
         tables = soup.find_all('table')
         logger.info(f"Found {len(tables)} tables in the response")
         
@@ -89,7 +89,22 @@ def track_acpl_cargo(tracking_number):
                         if key and value:
                             tracking_info[key] = value
         
-        # Also look for other common formats like definition lists or labeled divs
+        # 2. Look for div elements with shipping information 
+        # ACPL often uses div elements with specific classes
+        info_divs = soup.find_all('div', class_=['info', 'tracking-info', 'result', 'data-row'])
+        for div in info_divs:
+            # Look for nested divs with key-value pairs
+            label_divs = div.find_all(['div', 'span', 'label'], class_=['label', 'title', 'field-name'])
+            for label_div in label_divs:
+                key = label_div.get_text(strip=True)
+                # Get the next sibling which might be the value
+                value_elem = label_div.find_next(['div', 'span', 'p'], class_=['value', 'data', 'field-value'])
+                if value_elem:
+                    value = value_elem.get_text(strip=True)
+                    if key and value:
+                        tracking_info[key] = value
+        
+        # 3. Look for definition lists
         dls = soup.find_all('dl')
         for dl in dls:
             dts = dl.find_all('dt')
@@ -100,27 +115,18 @@ def track_acpl_cargo(tracking_number):
                 if key and value:
                     tracking_info[key] = value
         
-        # Look for labeled divs
-        divs = soup.find_all('div', class_='row')
-        for div in divs:
-            labels = div.find_all('div', class_=['col-md-4', 'col-sm-4', 'label'])
-            values = div.find_all('div', class_=['col-md-8', 'col-sm-8', 'value'])
-            for i in range(min(len(labels), len(values))):
-                key = labels[i].get_text(strip=True)
-                value = values[i].get_text(strip=True)
-                if key and value:
-                    tracking_info[key] = value
-        
-        # Look for bold/strong text as keys and the following text as values
-        strongs = soup.find_all(['strong', 'b'])
-        for strong in strongs:
-            key = strong.get_text(strip=True)
-            # Get the next sibling text
-            next_node = strong.next_sibling
-            if next_node and hasattr(next_node, 'strip'):
-                value = next_node.strip()
-                if key and value and ':' not in key:  # If key already contains a colon, it's likely part of a larger text
-                    tracking_info[key] = value
+        # 4. Check for structured data in paragraphs with strong/bold elements
+        paragraphs = soup.find_all('p')
+        for p in paragraphs:
+            strongs = p.find_all(['strong', 'b'])
+            for strong in strongs:
+                key = strong.get_text(strip=True).rstrip(':')
+                # Get the text right after the strong tag
+                next_node = strong.next_sibling
+                if next_node and hasattr(next_node, 'strip'):
+                    value = next_node.strip()
+                    if key and value:
+                        tracking_info[key] = value
         
         # If we found tracking data beyond just the GC number, return it
         if len(tracking_info) > 1:
@@ -199,9 +205,9 @@ def format_tracking_result(result):
         
         return message
     
-    elif "raw_text" in result and result["raw_text"]:
+    elif "raw_content" in result and result["raw_content"]:
         # Format raw text data
-        text = result["raw_text"]
+        text = result["raw_content"]
         
         # Try to clean up the raw text output and organize it better
         lines = text.split('\n')

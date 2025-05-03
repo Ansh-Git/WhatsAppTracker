@@ -252,7 +252,7 @@ def api_test_track():
             'success': tracking_result.get('success', False),
             'message': tracking_result.get('message', ''),
             'tracking_data': tracking_result.get('tracking_data'),
-            'raw_text': tracking_result.get('raw_text')
+            'raw_content': tracking_result.get('raw_content')
         })
         
     except Exception as e:
