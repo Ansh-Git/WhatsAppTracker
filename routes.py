@@ -6,7 +6,8 @@ from flask import render_template, request, jsonify, redirect, url_for, flash, s
 from sqlalchemy import func
 from app import app, db
 from models import User, Contact, Message, Automation, MessageStats
-from whatsapp_api import send_message, verify_whatsapp_webhook
+from whatsapp_api import verify_whatsapp_webhook
+from twilio_api import send_whatsapp_message as send_message
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,11 @@ def automations():
 def settings():
     # In a real app, this would get the current user's settings
     return render_template('settings.html')
+
+@app.route('/test')
+def test():
+    # Test page for tracking functionality
+    return render_template('test.html')
 
 # API Endpoints
 
@@ -228,19 +234,35 @@ def api_cleanup():
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
     if request.method == 'GET':
-        # Webhook verification
+        # For Meta WhatsApp Business API verification
         return verify_whatsapp_webhook(request)
     
     elif request.method == 'POST':
         # Process incoming webhook data
         try:
-            data = request.json
-            logger.debug(f"Received webhook data: {data}")
+            logger.debug("Received webhook POST request")
+            
+            # Check if this is a Twilio webhook (form data)
+            if request.form and 'Body' in request.form:
+                # Twilio webhook data comes as form data
+                data = request.form.to_dict()
+                logger.debug(f"Received Twilio webhook data: {data}")
+            else:
+                # Meta WhatsApp format (JSON)
+                data = request.json
+                logger.debug(f"Received webhook data: {data}")
             
             # Process the incoming message
             process_incoming_message(data)
             
-            return jsonify({'success': True})
+            # For Twilio, return a TwiML response (XML)
+            if request.form and 'Body' in request.form:
+                # No response for now, we'll handle responses separately
+                return ('', 204)
+            else:
+                # For other webhook formats, return JSON
+                return jsonify({'success': True})
+                
         except Exception as e:
             logger.error(f"Error processing webhook: {str(e)}")
             return jsonify({'error': str(e)}), 500
@@ -248,76 +270,100 @@ def webhook():
 def process_incoming_message(data):
     """Process incoming WhatsApp message from webhook data"""
     try:
-        # Extract message data from webhook payload
-        # This structure will vary based on the WhatsApp Business API format
-        if 'entry' not in data:
-            logger.warning("No 'entry' in webhook data")
+        logger.debug(f"Processing webhook data: {data}")
+        
+        # Handle Twilio WhatsApp webhook format
+        if 'Body' in data:
+            # Twilio webhook format
+            message_id = data.get('MessageSid', 'unknown')
+            from_number = data.get('From', '').replace('whatsapp:', '')
+            timestamp = datetime.utcnow()  # Twilio doesn't provide timestamp in the same way
+            message_type = 'text'
+            content = data.get('Body', '')
+            
+            logger.info(f"Received Twilio WhatsApp message: {content} from {from_number}")
+            
+        # Handle Meta WhatsApp Business API format
+        elif 'entry' in data:
+            # Meta WhatsApp Business API format
+            if 'entry' not in data:
+                logger.warning("No 'entry' in webhook data")
+                return
+            
+            for entry in data['entry']:
+                if 'changes' not in entry:
+                    continue
+                
+                for change in entry['changes']:
+                    if change.get('field') != 'messages':
+                        continue
+                    
+                    value = change.get('value', {})
+                    if 'messages' not in value:
+                        continue
+                    
+                    for msg in value['messages']:
+                        # Extract message details
+                        message_id = msg.get('id')
+                        from_number = msg.get('from')
+                        timestamp = datetime.fromtimestamp(int(msg.get('timestamp', 0)))
+                        message_type = msg.get('type', 'text')
+                        
+                        # Get message content based on type
+                        content = ""
+                        if message_type == 'text':
+                            content = msg.get('text', {}).get('body', '')
+                        elif message_type == 'image':
+                            content = "[Image]"  # In a real app, you'd process the image URL
+            
+            # Return if we didn't find a valid message
+            if not content:
+                logger.warning("No valid message found in webhook data")
+                return
+        else:
+            logger.warning("Unknown webhook format")
             return
         
-        for entry in data['entry']:
-            if 'changes' not in entry:
-                continue
-            
-            for change in entry['changes']:
-                if change.get('field') != 'messages':
-                    continue
-                
-                value = change.get('value', {})
-                if 'messages' not in value:
-                    continue
-                
-                for msg in value['messages']:
-                    # Extract message details
-                    message_id = msg.get('id')
-                    from_number = msg.get('from')
-                    timestamp = datetime.fromtimestamp(int(msg.get('timestamp', 0)))
-                    message_type = msg.get('type', 'text')
-                    
-                    # Get message content based on type
-                    content = ""
-                    if message_type == 'text':
-                        content = msg.get('text', {}).get('body', '')
-                    elif message_type == 'image':
-                        content = "[Image]"  # In a real app, you'd process the image URL
-                    # Add more message types as needed
-                    
-                    # Find or create contact
-                    contact = Contact.query.filter_by(phone_number=from_number).first()
-                    if not contact:
-                        contact = Contact(
-                            phone_number=from_number,
-                            first_interaction=timestamp,
-                            last_interaction=timestamp
-                        )
-                        db.session.add(contact)
-                    else:
-                        contact.last_interaction = timestamp
-                    
-                    # Create message record
-                    message = Message(
-                        message_id=message_id,
-                        contact=contact,
-                        content=content,
-                        timestamp=timestamp,
-                        direction='incoming',
-                        message_type=message_type,
-                        status='received',
-                        message_metadata=msg
-                    )
-                    db.session.add(message)
-                    db.session.commit()
-                    
-                    # Check for tracking commands
-                    if content.strip().upper().startswith('TRACK '):
-                        process_tracking_command(contact, content)
-                    else:
-                        # Process automations for non-tracking messages
-                        check_automations(contact, content)
-                    
-                    # Update statistics
-                    update_stats(contact, 'incoming')
-                    
-                    logger.info(f"Processed incoming message {message_id} from {from_number}")
+        # Find or create contact
+        contact = Contact.query.filter_by(phone_number=from_number).first()
+        if not contact:
+            contact = Contact(
+                phone_number=from_number,
+                first_interaction=timestamp,
+                last_interaction=timestamp
+            )
+            db.session.add(contact)
+        else:
+            contact.last_interaction = timestamp
+        
+        # Create message record
+        message = Message(
+            message_id=message_id,
+            contact=contact,
+            content=content,
+            timestamp=timestamp,
+            direction='incoming',
+            message_type=message_type,
+            status='received',
+            message_metadata=data
+        )
+        db.session.add(message)
+        db.session.commit()
+        
+        # Check for tracking commands
+        if content.strip().upper().startswith('TRACK '):
+            process_tracking_command(contact, content)
+        # Check for help command
+        elif content.strip().upper() == 'HELP':
+            check_automations(contact, content)
+        else:
+            # Process automations for other messages
+            check_automations(contact, content)
+        
+        # Update statistics
+        update_stats(contact, 'incoming')
+        
+        logger.info(f"Processed incoming message {message_id} from {from_number}")
     
     except Exception as e:
         db.session.rollback()

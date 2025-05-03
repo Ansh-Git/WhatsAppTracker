@@ -1,0 +1,99 @@
+{% extends 'layout.html' %}
+
+{% block title %}Test Tracking{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-12">
+            <h1>Test ACPL Tracking</h1>
+            <p class="text-muted">Use this page to test the tracking functionality without needing to use WhatsApp.</p>
+            
+            <div class="card bg-dark text-light mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Track ACPL Cargo Shipment</h5>
+                    <form id="trackingForm" class="mt-3">
+                        <div class="mb-3">
+                            <label for="trackingNumber" class="form-label">Tracking Number</label>
+                            <input type="text" class="form-control" id="trackingNumber" placeholder="Enter ACPL tracking number">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Track Shipment</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card bg-dark text-light">
+                <div class="card-body">
+                    <h5 class="card-title">Tracking Results</h5>
+                    <div id="trackingResults" class="mt-3">
+                        <div class="alert alert-secondary">No tracking data. Submit a tracking number above.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('trackingForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const trackingNumber = document.getElementById('trackingNumber').value.trim();
+    if (!trackingNumber) {
+        showResult('<div class="alert alert-danger">Please enter a tracking number</div>');
+        return;
+    }
+    
+    showResult('<div class="alert alert-info">Fetching tracking information...</div>');
+    
+    try {
+        // Create a message body as if it came from WhatsApp
+        const messageBody = `TRACK ${trackingNumber}`;
+        
+        // Call the API endpoint
+        const response = await fetch('/api/test/track', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ tracking_number: trackingNumber })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Format the response nicely
+            let resultHtml = '<div class="alert alert-success">';
+            resultHtml += '<h5 class="alert-heading">📦 Tracking Information</h5>';
+            
+            if (result.tracking_data) {
+                // Display structured data
+                resultHtml += '<div class="mt-3">';
+                for (const [key, value] of Object.entries(result.tracking_data)) {
+                    resultHtml += `<p><strong>${key}:</strong> ${value}</p>`;
+                }
+                resultHtml += '</div>';
+            } else if (result.raw_text) {
+                // Display raw text
+                resultHtml += `<div class="mt-3"><pre>${result.raw_text}</pre></div>`;
+            } else {
+                resultHtml += '<p>Tracking information retrieved but no details available.</p>';
+            }
+            
+            resultHtml += '</div>';
+            showResult(resultHtml);
+        } else {
+            showResult(`<div class="alert alert-danger">${result.message || 'Failed to retrieve tracking information'}</div>`);
+        }
+    } catch (error) {
+        console.error('Error tracking shipment:', error);
+        showResult('<div class="alert alert-danger">An error occurred while tracking your shipment. Please try again.</div>');
+    }
+});
+
+function showResult(html) {
+    const resultsContainer = document.getElementById('trackingResults');
+    resultsContainer.innerHTML = html;
+}
+</script>
+{% endblock %}
