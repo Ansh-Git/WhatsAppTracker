@@ -1,0 +1,194 @@
+{% extends "layout.html" %}
+
+{% block title %} - Dashboard{% endblock %}
+
+{% block header %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Stats Cards -->
+    <div class="col-md-4 mb-4">
+        <div class="card bg-dark text-light h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">Total Messages</h5>
+                <h2 class="display-4">{{ total_messages }}</h2>
+                <div class="mt-3">
+                    <span class="badge bg-success me-2">{{ incoming_messages }} Received</span>
+                    <span class="badge bg-info">{{ outgoing_messages }} Sent</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card bg-dark text-light h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">Contacts</h5>
+                <h2 class="display-4">{{ total_contacts }}</h2>
+                <div class="mt-3">
+                    <span class="badge bg-warning">{{ active_contacts }} Active (7 days)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card bg-dark text-light h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">Response Rate</h5>
+                <h2 class="display-4">
+                    {% if incoming_messages > 0 %}
+                        {{ ((outgoing_messages / incoming_messages) * 100) | round }}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </h2>
+                <div class="mt-3">
+                    <span class="badge bg-primary">Last 7 Days</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="card bg-dark text-light">
+            <div class="card-header">
+                <h5 class="card-title">Message Activity (Last 7 Days)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="messageActivityChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="card bg-dark text-light">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Recent Activity</h5>
+                <a href="{{ url_for('messages') }}" class="btn btn-sm btn-outline-light">View All</a>
+            </div>
+            <div class="card-body">
+                <div id="recentMessages">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border text-light" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Chart data from server
+    const dateLabels = {{ date_labels|safe }};
+    const receivedData = {{ received_data|safe }};
+    const sentData = {{ sent_data|safe }};
+    
+    // Initialize charts when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        // Message Activity Chart
+        const messageActivityChart = new Chart(
+            document.getElementById('messageActivityChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: dateLabels,
+                    datasets: [
+                        {
+                            label: 'Received',
+                            data: receivedData,
+                            backgroundColor: 'rgba(40, 167, 69, 0.2)',
+                            borderColor: 'rgba(40, 167, 69, 1)',
+                            borderWidth: 2,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Sent',
+                            data: sentData,
+                            backgroundColor: 'rgba(23, 162, 184, 0.2)',
+                            borderColor: 'rgba(23, 162, 184, 1)',
+                            borderWidth: 2,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    },
+                }
+            }
+        );
+        
+        // Load recent messages
+        fetch('/api/messages?limit=5')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to load recent messages');
+                }
+                return response.json();
+            })
+            .then(data => {
+                const recentMessagesContainer = document.getElementById('recentMessages');
+                
+                if (data.length === 0) {
+                    recentMessagesContainer.innerHTML = '<p class="text-center">No recent messages found</p>';
+                    return;
+                }
+                
+                let html = '<div class="list-group list-group-flush">';
+                
+                data.forEach(message => {
+                    const date = new Date(message.timestamp);
+                    const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                    
+                    html += `
+                        <div class="list-group-item bg-dark text-light">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">${message.contact_name || message.phone_number}</h6>
+                                <small>${formattedDate}</small>
+                            </div>
+                            <p class="mb-1">${message.content}</p>
+                            <small class="text-${message.direction === 'incoming' ? 'success' : 'info'}">
+                                ${message.direction === 'incoming' ? 'Received' : 'Sent'}
+                            </small>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                recentMessagesContainer.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('recentMessages').innerHTML = 
+                    `<div class="alert alert-danger">Failed to load recent messages: ${error.message}</div>`;
+            });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,154 @@
+{% extends "layout.html" %}
+
+{% block title %} - Messages{% endblock %}
+
+{% block header %}Message History{% endblock %}
+
+{% block content %}
+<div class="card bg-dark text-light mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="input-group">
+                    <input type="text" id="search-input" class="form-control" placeholder="Search messages...">
+                    <button class="btn btn-outline-light" type="button" id="search-button">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <select id="filter-select" class="form-select">
+                    <option value="all">All Messages</option>
+                    <option value="incoming">Received Only</option>
+                    <option value="outgoing">Sent Only</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card bg-dark text-light">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover">
+                <thead>
+                    <tr>
+                        <th>Contact</th>
+                        <th>Message</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Timestamp</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="messages-table-body">
+                    {% for message in messages.items %}
+                    <tr class="message-row {% if message.direction == 'incoming' %}table-success{% else %}table-info{% endif %}">
+                        <td>{{ message.contact.name or message.contact.phone_number }}</td>
+                        <td>{{ message.content }}</td>
+                        <td>
+                            <span class="badge bg-secondary">{{ message.message_type }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ message.status in ['sent', 'delivered', 'read'] and 'success' or 'warning' }}">
+                                {{ message.status }}
+                            </span>
+                        </td>
+                        <td>{{ message.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-light reply-btn" data-phone="{{ message.contact.phone_number }}">
+                                <i class="fas fa-reply"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center">No messages found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if messages.pages > 1 %}
+        <nav aria-label="Message pagination">
+            <ul class="pagination justify-content-center">
+                {% if messages.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('messages', page=messages.prev_num) }}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">&laquo;</span>
+                </li>
+                {% endif %}
+                
+                {% for page_num in messages.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        {% if page_num == messages.page %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_num }}</span>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('messages', page=page_num) }}">{{ page_num }}</a>
+                        </li>
+                        {% endif %}
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if messages.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('messages', page=messages.next_num) }}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">&raquo;</span>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Reply Modal -->
+<div class="modal fade" id="replyModal" tabindex="-1" aria-labelledby="replyModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title" id="replyModalLabel">Reply to Contact</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="replyForm">
+                    <input type="hidden" id="recipient-phone" value="">
+                    <div class="mb-3">
+                        <label for="reply-message" class="form-label">Message</label>
+                        <textarea class="form-control" id="reply-message" rows="3" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="send-reply-btn">
+                    <i class="fas fa-paper-plane me-1"></i> Send
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/messages.js') }}"></script>
+{% endblock %}

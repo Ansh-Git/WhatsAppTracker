@@ -1,0 +1,71 @@
+{% extends "layout.html" %}
+
+{% block title %} - Welcome{% endblock %}
+
+{% block header %}Welcome to WhatsApp Tracking Bot{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8">
+        <div class="card bg-dark text-light">
+            <div class="card-body text-center">
+                <h1 class="mb-4"><i class="fab fa-whatsapp text-success me-2"></i>WhatsApp Tracking Bot</h1>
+                <p class="lead">Monitor and analyze your WhatsApp messages with powerful tracking and automation tools.</p>
+                
+                <div class="row mt-5">
+                    <div class="col-md-4">
+                        <div class="card mb-4 bg-dark border">
+                            <div class="card-body text-center">
+                                <i class="fas fa-chart-bar fa-3x mb-3 text-primary"></i>
+                                <h5>Message Analytics</h5>
+                                <p>Track message patterns and engagement metrics with detailed analytics.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card mb-4 bg-dark border">
+                            <div class="card-body text-center">
+                                <i class="fas fa-robot fa-3x mb-3 text-info"></i>
+                                <h5>Message Automation</h5>
+                                <p>Create custom automated responses based on triggers and keywords.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card mb-4 bg-dark border">
+                            <div class="card-body text-center">
+                                <i class="fas fa-history fa-3x mb-3 text-success"></i>
+                                <h5>Message History</h5>
+                                <p>Access and search your complete message history in one place.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-5">
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-success btn-lg me-3">
+                        <i class="fas fa-tachometer-alt me-2"></i>Go to Dashboard
+                    </a>
+                    <a href="{{ url_for('messages') }}" class="btn btn-outline-light btn-lg">
+                        <i class="fas fa-comments me-2"></i>View Messages
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4 bg-dark text-light">
+            <div class="card-body">
+                <h3>Getting Started</h3>
+                <p>To use the WhatsApp Tracking Bot:</p>
+                <ol>
+                    <li>Configure your WhatsApp Business API credentials in the Settings page</li>
+                    <li>Set up your webhook URL to receive message notifications</li>
+                    <li>Create automations to respond to messages automatically</li>
+                    <li>Start monitoring and analyzing your WhatsApp communication</li>
+                </ol>
+                <p>Need help? Check the settings page for detailed setup instructions.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,278 @@
+{% extends "layout.html" %}
+
+{% block title %} - Settings{% endblock %}
+
+{% block header %}Settings{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="card bg-dark text-light">
+            <div class="card-header">
+                <h5 class="card-title">WhatsApp API Configuration</h5>
+            </div>
+            <div class="card-body">
+                <form id="api-settings-form">
+                    <div class="mb-3">
+                        <label for="phone-number-id" class="form-label">WhatsApp Phone Number ID</label>
+                        <input type="text" class="form-control" id="phone-number-id" placeholder="Enter your WhatsApp Phone Number ID">
+                        <div class="form-text">Find this in your WhatsApp Business API dashboard</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="access-token" class="form-label">WhatsApp API Access Token</label>
+                        <input type="password" class="form-control" id="access-token" placeholder="Enter your WhatsApp API access token">
+                        <div class="form-text">The token is stored securely and never displayed</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="verify-token" class="form-label">Webhook Verify Token</label>
+                        <input type="text" class="form-control" id="verify-token" placeholder="Enter a verify token for your webhook">
+                        <div class="form-text">This token is used to verify webhook requests from WhatsApp</div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Save API Settings</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-12 mb-4">
+        <div class="card bg-dark text-light">
+            <div class="card-header">
+                <h5 class="card-title">Webhook Setup</h5>
+            </div>
+            <div class="card-body">
+                <p>To receive WhatsApp messages, you need to set up a webhook in your WhatsApp Business API account.</p>
+                
+                <div class="mb-3">
+                    <label for="webhook-url" class="form-label">Your Webhook URL</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="webhook-url" readonly>
+                        <button class="btn btn-outline-light" type="button" id="copy-webhook-btn">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="form-text">Use this URL in your WhatsApp Business API dashboard</div>
+                </div>
+                
+                <h6>Webhook Setup Instructions:</h6>
+                <ol>
+                    <li>Go to your WhatsApp Business Platform dashboard</li>
+                    <li>Navigate to API Setup or Webhooks section</li>
+                    <li>Enter your webhook URL (shown above)</li>
+                    <li>Enter the same verify token you provided in the API settings</li>
+                    <li>Subscribe to the following webhook fields:
+                        <ul>
+                            <li>messages</li>
+                            <li>message_status</li>
+                        </ul>
+                    </li>
+                    <li>Save your changes</li>
+                </ol>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    To test your webhook, make sure your application is running and accessible from the internet.
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-12 mb-4">
+        <div class="card bg-dark text-light">
+            <div class="card-header">
+                <h5 class="card-title">Database Management</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card bg-dark text-light mb-3">
+                            <div class="card-body">
+                                <h6 class="card-title">Export Data</h6>
+                                <p>Download your tracking data as CSV files.</p>
+                                <button class="btn btn-outline-light" id="export-messages-btn">
+                                    <i class="fas fa-download me-2"></i>Export Messages
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card bg-dark text-light mb-3">
+                            <div class="card-body">
+                                <h6 class="card-title">Data Cleanup</h6>
+                                <p>Delete old tracking data to free up space.</p>
+                                <button class="btn btn-outline-danger" id="cleanup-data-btn">
+                                    <i class="fas fa-trash me-2"></i>Cleanup Old Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cleanup Confirmation Modal -->
+<div class="modal fade" id="cleanupModal" tabindex="-1" aria-labelledby="cleanupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cleanupModalLabel">Confirm Data Cleanup</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>This will delete message data older than:</p>
+                <select class="form-select" id="cleanup-age">
+                    <option value="30">30 days</option>
+                    <option value="60">60 days</option>
+                    <option value="90">90 days</option>
+                    <option value="180">6 months</option>
+                    <option value="365">1 year</option>
+                </select>
+                <div class="alert alert-warning mt-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Warning: This action cannot be undone. Deleted data cannot be recovered.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-cleanup-btn">Delete Data</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set the webhook URL
+        const protocol = window.location.protocol;
+        const host = window.location.host;
+        const webhookUrl = `${protocol}//${host}/webhook`;
+        document.getElementById('webhook-url').value = webhookUrl;
+        
+        // Copy webhook URL button
+        document.getElementById('copy-webhook-btn').addEventListener('click', function() {
+            const webhookUrl = document.getElementById('webhook-url');
+            webhookUrl.select();
+            document.execCommand('copy');
+            
+            // Show a temporary "Copied!" tooltip
+            this.setAttribute('data-original-title', 'Copied!');
+            this.setAttribute('data-toggle', 'tooltip');
+            this.setAttribute('data-placement', 'top');
+            $(this).tooltip('show');
+            
+            setTimeout(() => {
+                $(this).tooltip('hide');
+                this.removeAttribute('data-toggle');
+                this.removeAttribute('data-original-title');
+                this.removeAttribute('data-placement');
+            }, 1500);
+        });
+        
+        // API Settings form submission
+        document.getElementById('api-settings-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const phoneNumberId = document.getElementById('phone-number-id').value.trim();
+            const accessToken = document.getElementById('access-token').value.trim();
+            const verifyToken = document.getElementById('verify-token').value.trim();
+            
+            // Validate inputs
+            if (!phoneNumberId || !verifyToken) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            // Send to server
+            fetch('/api/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    phone_number_id: phoneNumberId,
+                    access_token: accessToken,
+                    verify_token: verifyToken
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to save settings');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    alert('Settings saved successfully');
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving settings: ' + error.message);
+            });
+        });
+        
+        // Export messages button
+        document.getElementById('export-messages-btn').addEventListener('click', function() {
+            window.location.href = '/api/export/messages';
+        });
+        
+        // Cleanup data button
+        document.getElementById('cleanup-data-btn').addEventListener('click', function() {
+            $('#cleanupModal').modal('show');
+        });
+        
+        // Confirm cleanup button
+        document.getElementById('confirm-cleanup-btn').addEventListener('click', function() {
+            const daysToKeep = document.getElementById('cleanup-age').value;
+            
+            fetch(`/api/cleanup?days=${daysToKeep}`, {
+                method: 'POST'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to clean up data');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    alert(`Successfully deleted ${data.deleted_count} messages older than ${daysToKeep} days`);
+                    $('#cleanupModal').modal('hide');
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error cleaning up data: ' + error.message);
+            });
+        });
+        
+        // Load current settings
+        fetch('/api/settings')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to load settings');
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('phone-number-id').value = data.phone_number_id || '';
+                document.getElementById('verify-token').value = data.verify_token || '';
+                // We don't populate the access token for security reasons
+            })
+            .catch(error => {
+                console.error('Error loading settings:', error);
+            });
+    });
+</script>
+{% endblock %}
