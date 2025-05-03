@@ -50,6 +50,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {% if request.path == '/webhook-simulator' %}active{% endif %}" href="{{ url_for('webhook_simulator') }}">
+                                <i class="fas fa-vial me-2"></i>Webhook Simulator
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {% if request.path == '/test' %}active{% endif %}" href="{{ url_for('test') }}">
                                 <i class="fas fa-vial me-2"></i>Test Tracking
                             </a>

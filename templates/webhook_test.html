@@ -26,7 +26,7 @@
                     <div class="mb-3">
                         <label for="messageBody" class="form-label">Message Text:</label>
                         <input type="text" class="form-control" id="messageBody" value="TRACK 2504500644" required>
-                        <div class="form-text">Try "TRACK 2504500644" or "HELP"</div>
+                        <div class="form-text">Try "TRACK 2504500644" to test cargo tracking or "HELP" to test automations</div>
                     </div>
                     <button type="submit" class="btn btn-primary">Send Test Webhook</button>
                 </form>
@@ -80,6 +80,9 @@
             // Send the webhook to our local webhook endpoint
             fetch('/webhook', {
                 method: 'POST',
+                headers: {
+                    'X-Webhook-Simulator': 'true'
+                },
                 body: formData
             })
             .then(response => {

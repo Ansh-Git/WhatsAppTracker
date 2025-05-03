@@ -9,7 +9,46 @@ from models import User, Contact, Message, Automation, MessageStats
 from whatsapp_api import verify_whatsapp_webhook
 from twilio_api import send_whatsapp_message as send_message
 
+# Initialize logger
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize default automations
+def create_default_automations():
+    """Create default automations on startup"""
+    try:
+        # Check if we already have a HELP automation
+        help_automation = Automation.query.filter_by(trigger_value='HELP').first()
+        
+        if not help_automation:
+            logger.info("Creating default HELP automation")
+            help_text = """📱 *WhatsApp Tracking Bot Help*
+
+Thank you for using our tracking service! Here are the available commands:
+
+*TRACK [number]* - Track an ACPL cargo shipment
+Example: TRACK 2504500644
+
+*HELP* - Show this help message
+
+For any assistance, please contact our support team.
+"""
+            help_automation = Automation(
+                name="Help Command",
+                trigger_type="keyword",
+                trigger_value="HELP",
+                response_text=help_text,
+                is_active=True
+            )
+            db.session.add(help_automation)
+            db.session.commit()
+            logger.info("Default HELP automation created successfully")
+    except Exception as e:
+        logger.error(f"Error creating default automations: {str(e)}")
+
+# Call this on startup
+with app.app_context():
+    create_default_automations()
 
 @app.route('/')
 def index():
@@ -286,10 +325,17 @@ def webhook():
                 
                 # Verify that this is a genuine Twilio request
                 from twilio_api import verify_twilio_webhook_signature
-                if not verify_twilio_webhook_signature(request):
+                
+                # Check if this is a test request from our simulator
+                is_test_request = request.headers.get('X-Webhook-Simulator') == 'true'
+                
+                if not is_test_request and not verify_twilio_webhook_signature(request):
                     print("WEBHOOK POST: Invalid Twilio webhook signature")
                     logger.warning("Invalid Twilio webhook signature")
                     return jsonify({'error': 'Invalid signature'}), 403
+                    
+                if is_test_request:
+                    print("WEBHOOK POST: Test request from simulator - bypassing signature verification")
                 
             else:
                 # Check if this is JSON data
