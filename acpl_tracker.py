@@ -184,24 +184,121 @@ def format_tracking_result(result):
         # Format structured data
         message = "📦 *ACPL Cargo Tracking Information*\n\n"
         
-        # Define important fields to show first (if present)
-        priority_fields = [
-            "GC Number", "GCNumber", "tracking", "Tracking", "gc_ref", "Status", "status", 
-            "Current Status", "Delivery Date", "delivery_date", "Current Location", 
-            "Origin", "Destination", "Sent Date", "sender", "receiver"
-        ]
+        # Process the tracking data for better formatting
+        tracking_data = result["tracking_data"]
         
-        # First show priority fields in order
-        for field in priority_fields:
-            for key in result["tracking_data"]:
-                if key.lower() == field.lower() or key.replace(" ", "").lower() == field.replace(" ", "").lower():
-                    value = result["tracking_data"][key]
-                    message += f"*{key}*: {value}\n"
+        # Extract and display the GC Number first
+        gc_number = tracking_data.get("GC Number", tracking_data.get("GCNumber", "Unknown"))
+        message += f"*Tracking Number*: {gc_number}\n"
         
-        # Then show remaining fields
-        for key, value in result["tracking_data"].items():
-            if not any(key.lower() == field.lower() or key.replace(" ", "").lower() == field.replace(" ", "").lower() for field in priority_fields):
-                message += f"*{key}*: {value}\n"
+        # Extract booking/sent date if available
+        booking_date = None
+        for key, value in tracking_data.items():
+            if key.lower() in ["booking date", "sent date", "date of booking"] or (
+                isinstance(key, str) and key.isdigit() and isinstance(value, str) and 
+                ("/" in value or "-" in value)
+            ):
+                booking_date = value
+                message += f"*Booking Date*: {value}\n"
+                break
+        
+        # Extract current location if available
+        current_location = None
+        # First check for explicitly labeled current location
+        location_keys = ["current location", "location", "present location", "last scan"]
+        for key, value in tracking_data.items():
+            if isinstance(key, str) and any(loc_key in key.lower() for loc_key in location_keys):
+                current_location = value
+                message += f"*Current Location*: {value}\n"
+                break
+                
+        # If no explicit location found, use the most recent date's location
+        if not current_location:
+            date_locations = []
+            for key, value in tracking_data.items():
+                if isinstance(key, str) and ("/" in key or "-" in key):
+                    date_locations.append((key, value))
+            
+            # Sort dates in descending order (newest first)
+            try:
+                date_locations.sort(reverse=True)
+                if date_locations:
+                    # Use the newest date's location
+                    newest_date, location = date_locations[0]
+                    current_location = location
+                    message += f"*Current Location*: {location} (as of {newest_date})\n"
+            except:
+                pass
+            
+        message += "\n*Shipment Movement*:\n"
+        
+        # Organize movement history by dates (newest first)
+        movement_history = []
+        current_location_date = None
+        
+        # If we determined a current location from a date, remember that date
+        if not any(loc_key in key.lower() for key in tracking_data for loc_key in location_keys):
+            try:
+                date_locations = []
+                for key, value in tracking_data.items():
+                    if isinstance(key, str) and ("/" in key or "-" in key):
+                        date_locations.append((key, value))
+                
+                date_locations.sort(reverse=True)
+                if date_locations:
+                    current_location_date = date_locations[0][0]
+            except:
+                pass
+        
+        for key, value in tracking_data.items():
+            # Skip the items we've already processed
+            if key == "GC Number" or key == "GCNumber" or value == booking_date or value == current_location:
+                continue
+                
+            # Skip the current location date if we determined it above
+            if current_location_date and key == current_location_date:
+                continue
+                
+            # Check if key is a date (contains / or -) or value is a location
+            if isinstance(key, str) and ("/" in key or "-" in key):
+                movement_history.append((key, value))
+            elif isinstance(value, str) and ("/" in value or "-" in value):
+                # If value is a date, swap them for consistency
+                movement_history.append((value, key))
+        
+        # Sort movement history by date (newest first if possible)
+        try:
+            # This is a simple attempt to sort by date
+            movement_history.sort(reverse=True)
+        except:
+            # If sorting fails, just use the order we found
+            pass
+            
+        # Add movement history to the message
+        for date, location in movement_history:
+            message += f"📅 *{date}*: {location}\n"
+        
+        # Add any remaining fields that haven't been included yet
+        remaining_fields = []
+        for key, value in tracking_data.items():
+            # Skip fields we've already processed or that don't provide additional value
+            if key in ["GC Number", "GCNumber", "GC No", "Date", gc_number] or (key, value) in movement_history:
+                continue
+                
+            # Skip fields that are already part of other entries
+            if any(item[0] == key for item in movement_history) or any(item[1] == key for item in movement_history):
+                continue
+                
+            # Skip the current location date entry
+            if current_location_date and key == current_location_date:
+                continue
+                
+            remaining_fields.append((key, value))
+        
+        if remaining_fields:
+            message += "\n*Additional Information*:\n"
+            for key, value in remaining_fields:
+                message += f"• *{key}*: {value}\n"
         
         return message
     
