@@ -217,80 +217,107 @@ def format_tracking_result(result):
             date_locations = []
             for key, value in tracking_data.items():
                 if isinstance(key, str) and ("/" in key or "-" in key):
-                    date_locations.append((key, value))
+                    # Parse the date format (DD/MM/YYYY or YYYY-MM-DD)
+                    try:
+                        if "/" in key:
+                            day, month, year = map(int, key.split("/"))
+                            date_key = f"{year:04d}{month:02d}{day:02d}"  # Convert to sortable string YYYYMMDD
+                        elif "-" in key:
+                            year, month, day = map(int, key.split("-"))
+                            date_key = f"{year:04d}{month:02d}{day:02d}"
+                        else:
+                            date_key = key
+                        date_locations.append((date_key, key, value))
+                    except:
+                        # If date parsing fails, just use the original string
+                        date_locations.append(("0", key, value))
             
             # Sort dates in descending order (newest first)
-            try:
-                date_locations.sort(reverse=True)
-                if date_locations:
-                    # Use the newest date's location
-                    newest_date, location = date_locations[0]
-                    current_location = location
-                    message += f"*Current Location*: {location} (as of {newest_date})\n"
-            except:
-                pass
+            date_locations.sort(reverse=True)
+            if date_locations:
+                # Use the newest date's location
+                _, newest_date, location = date_locations[0]
+                current_location = location
+                message += f"*Current Location*: {location} (as of {newest_date})\n"
             
         message += "\n*Shipment Movement*:\n"
         
-        # Organize movement history by dates (newest first)
+        # Organize movement history by dates (newest first) using robust date parsing
         movement_history = []
-        current_location_date = None
-        
-        # If we determined a current location from a date, remember that date
-        if not any(loc_key in key.lower() for key in tracking_data for loc_key in location_keys):
-            try:
-                date_locations = []
-                for key, value in tracking_data.items():
-                    if isinstance(key, str) and ("/" in key or "-" in key):
-                        date_locations.append((key, value))
-                
-                date_locations.sort(reverse=True)
-                if date_locations:
-                    current_location_date = date_locations[0][0]
-            except:
-                pass
         
         for key, value in tracking_data.items():
             # Skip the items we've already processed
             if key == "GC Number" or key == "GCNumber" or value == booking_date or value == current_location:
                 continue
                 
-            # Skip the current location date if we determined it above
-            if current_location_date and key == current_location_date:
-                continue
-                
             # Check if key is a date (contains / or -) or value is a location
             if isinstance(key, str) and ("/" in key or "-" in key):
-                movement_history.append((key, value))
+                # Parse the date for proper sorting
+                try:
+                    if "/" in key:
+                        day, month, year = map(int, key.split("/"))
+                        date_key = f"{year:04d}{month:02d}{day:02d}"  # Convert to sortable string YYYYMMDD
+                    elif "-" in key:
+                        year, month, day = map(int, key.split("-"))
+                        date_key = f"{year:04d}{month:02d}{day:02d}"
+                    else:
+                        date_key = "0"  # Default for non-parseable dates
+                    
+                    movement_history.append((date_key, key, value))
+                except:
+                    # If date parsing fails, just use a default sort key
+                    movement_history.append(("0", key, value))
             elif isinstance(value, str) and ("/" in value or "-" in value):
                 # If value is a date, swap them for consistency
-                movement_history.append((value, key))
+                try:
+                    if "/" in value:
+                        day, month, year = map(int, value.split("/"))
+                        date_key = f"{year:04d}{month:02d}{day:02d}"
+                    elif "-" in value:
+                        year, month, day = map(int, value.split("-"))
+                        date_key = f"{year:04d}{month:02d}{day:02d}"
+                    else:
+                        date_key = "0"
+                        
+                    movement_history.append((date_key, value, key))
+                except:
+                    movement_history.append(("0", value, key))
         
-        # Sort movement history by date (newest first if possible)
-        try:
-            # This is a simple attempt to sort by date
-            movement_history.sort(reverse=True)
-        except:
-            # If sorting fails, just use the order we found
-            pass
+        # Sort movement history by parsed date (newest first)
+        movement_history.sort(reverse=True)
             
         # Add movement history to the message
-        for date, location in movement_history:
-            message += f"📅 *{date}*: {location}\n"
+        for entry in movement_history:
+            # Each entry is now (sort_key, date_string, location)
+            _, date_string, location = entry
+            message += f"📅 *{date_string}*: {location}\n"
         
         # Add any remaining fields that haven't been included yet
         remaining_fields = []
+        
+        # Create sets of keys and values that are already part of movement history
+        movement_history_dates = {entry[1] for entry in movement_history}
+        movement_history_locations = {entry[2] for entry in movement_history}
+        
         for key, value in tracking_data.items():
             # Skip fields we've already processed or that don't provide additional value
-            if key in ["GC Number", "GCNumber", "GC No", "Date", gc_number] or (key, value) in movement_history:
+            if key in ["GC Number", "GCNumber", "GC No", "Date", gc_number]:
                 continue
                 
-            # Skip fields that are already part of other entries
-            if any(item[0] == key for item in movement_history) or any(item[1] == key for item in movement_history):
+            # Skip if this key is a date we've already processed 
+            if key in movement_history_dates:
                 continue
                 
-            # Skip the current location date entry
-            if current_location_date and key == current_location_date:
+            # Skip if this value is a location we've already processed
+            if value in movement_history_locations:
+                continue
+            
+            # Skip if this is the current location we already displayed
+            if value == current_location:
+                continue
+                
+            # Skip if this is the booking date we already displayed
+            if value == booking_date:
                 continue
                 
             remaining_fields.append((key, value))
