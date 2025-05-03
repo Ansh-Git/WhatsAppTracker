@@ -1,7 +1,7 @@
 import logging
 import requests
 from bs4 import BeautifulSoup
-import re
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -15,61 +15,70 @@ def track_acpl_cargo(tracking_number):
     Returns:
         dict: A dictionary containing the tracking information or error message
     """
-    url = "https://acplcargo.com/GCTRACKING.php"
+    # Step 1: Go to the ACPL tracking page
+    base_url = "https://acplcargo.com/GCTRACKING.php"
+    api_url = "https://acplcargo.com/poc.php"  # This is the actual API endpoint used for tracking
     
     try:
-        # First, make a POST request to submit the tracking number
+        # Create a session to maintain cookies
+        session = requests.Session()
+        
+        # First, let's get the initial page to simulate browser behavior
+        logger.info("Accessing ACPL tracking page")
+        initial_response = session.get(base_url)
+        initial_response.raise_for_status()
+        
+        # Now, submit the tracking number directly to the API endpoint that's used by their JavaScript
+        logger.info(f"Submitting tracking number: {tracking_number}")
+        
+        # The correct parameter is 'gcnumber' based on the JavaScript code
         payload = {
-            'tracking': tracking_number,
-            'submit': 'Submit'
+            'gcnumber': tracking_number,
+            'etransGCNumber': '',
+            'mode': ''
         }
         
-        logger.info(f"Sending tracking request for number: {tracking_number}")
-        session = requests.Session()
-        response = session.post(url, data=payload)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
+            'Origin': 'https://acplcargo.com',
+            'Referer': base_url,
+            'X-Requested-With': 'XMLHttpRequest',  # This indicates it's an AJAX request
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        
+        # Submit the tracking request to the API
+        logger.info(f"Sending request to {api_url}")
+        response = session.post(api_url, data=payload, headers=headers)
         response.raise_for_status()
         
-        # Check if we have tracking results
+        # Save the response for debugging
+        with open('tracking_response.html', 'w') as f:
+            f.write(response.text)
+        logger.info("Saved tracking response to tracking_response.html")
+        
+        # Check if tracking info is found
         if "No Tracking Information available" in response.text:
             return {
                 "success": False,
                 "message": f"No tracking information found for number {tracking_number}"
             }
-            
-        # Parse the HTML response
+        
+        # Parse the result HTML (this will be the HTML fragment returned by the API)
+        logger.info("Parsing tracking results")
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Find the tracking information table (ACPL specific structure)
-        tracking_info = {}
+        # Initialize tracking info with the GC number
+        tracking_info = {
+            "GC Number": tracking_number
+        }
         
-        # ACPL typically shows tracking info in a table with specific structure
-        # Look for the specific container that holds tracking information
-        content_container = soup.find('div', {'class': 'grid_9'})
-        if content_container:
-            logger.info("Found main content container")
-            
-            # Get tracking number from the page
-            tracking_info["GC Number"] = tracking_number
-            
-            # Look for the status information which is typically in strong tags
-            status_tags = content_container.find_all('strong')
-            if status_tags:
-                for tag in status_tags:
-                    text = tag.get_text(strip=True)
-                    if ":" in text:
-                        parts = text.split(":", 1)
-                        key = parts[0].strip()
-                        value = parts[1].strip()
-                        tracking_info[key] = value
-                    elif len(text) > 0:
-                        # This might be a status message
-                        tracking_info["Status"] = text
+        # Try to extract tracking information from the page
         
-        # Try to extract tracking information from all tables on the page
+        # Look for tables which typically contain tracking information
         tables = soup.find_all('table')
+        logger.info(f"Found {len(tables)} tables in the response")
+        
         if tables:
-            logger.info(f"Found {len(tables)} tables to analyze")
-            # Process each table
             for table in tables:
                 rows = table.find_all('tr')
                 for row in rows:
@@ -78,67 +87,66 @@ def track_acpl_cargo(tracking_number):
                         key = cells[0].get_text(strip=True)
                         value = cells[1].get_text(strip=True)
                         if key and value:
-                            # Clean up the key to make it more readable
-                            key = re.sub(r'[^a-zA-Z0-9\s]', '', key).strip()
                             tracking_info[key] = value
         
-        # Extract from specific ACPL format using direct CSS selectors
-        # Try to find labels and their values
-        labels = soup.select('label.control-label')
-        for label in labels:
-            key = label.get_text(strip=True).rstrip(':')
-            # Look for the next element which might contain the value
-            value_elem = label.find_next(['span', 'div', 'p', 'input'])
-            if value_elem:
-                # Try to get value from input
-                if value_elem.name == 'input':
-                    value = value_elem.get('value', '')
-                else:
-                    value = value_elem.get_text(strip=True)
-                
+        # Also look for other common formats like definition lists or labeled divs
+        dls = soup.find_all('dl')
+        for dl in dls:
+            dts = dl.find_all('dt')
+            dds = dl.find_all('dd')
+            for i in range(min(len(dts), len(dds))):
+                key = dts[i].get_text(strip=True)
+                value = dds[i].get_text(strip=True)
                 if key and value:
                     tracking_info[key] = value
         
-        # If we still don't have enough information, try a more aggressive approach
-        if len(tracking_info) <= 1:  # Only has GC Number
-            # Extract all text and try to find patterns
-            all_text = soup.get_text(separator='\n', strip=True)
-            lines = all_text.split('\n')
-            
-            for line in lines:
-                line = line.strip()
-                if ':' in line:
-                    parts = line.split(':', 1)
-                    key = parts[0].strip()
-                    value = parts[1].strip()
-                    if key and value and len(key) < 50:  # Reasonable key length
-                        tracking_info[key] = value
-                        
-            # Look for specific ACPL patterns
-            status_pattern = re.search(r'Status\s*[:]\s*([^\n]+)', all_text, re.IGNORECASE)
-            if status_pattern and "Status" not in tracking_info:
-                tracking_info["Status"] = status_pattern.group(1).strip()
-                
-            date_pattern = re.search(r'(Date|Delivery)\s*[:]\s*([^\n]+)', all_text, re.IGNORECASE)
-            if date_pattern and "Delivery Date" not in tracking_info:
-                tracking_info["Delivery Date"] = date_pattern.group(2).strip()
+        # Look for labeled divs
+        divs = soup.find_all('div', class_='row')
+        for div in divs:
+            labels = div.find_all('div', class_=['col-md-4', 'col-sm-4', 'label'])
+            values = div.find_all('div', class_=['col-md-8', 'col-sm-8', 'value'])
+            for i in range(min(len(labels), len(values))):
+                key = labels[i].get_text(strip=True)
+                value = values[i].get_text(strip=True)
+                if key and value:
+                    tracking_info[key] = value
         
-        # If we still don't have any tracking data, return the raw HTML for diagnosis
-        if len(tracking_info) <= 1:
-            logger.warning("Could not extract structured tracking information, returning raw HTML for manual inspection")
+        # Look for bold/strong text as keys and the following text as values
+        strongs = soup.find_all(['strong', 'b'])
+        for strong in strongs:
+            key = strong.get_text(strip=True)
+            # Get the next sibling text
+            next_node = strong.next_sibling
+            if next_node and hasattr(next_node, 'strip'):
+                value = next_node.strip()
+                if key and value and ':' not in key:  # If key already contains a colon, it's likely part of a larger text
+                    tracking_info[key] = value
+        
+        # If we found tracking data beyond just the GC number, return it
+        if len(tracking_info) > 1:
+            logger.info(f"Successfully extracted tracking data: {tracking_info}")
             return {
                 "success": True,
-                "message": "Raw tracking response retrieved",
-                "raw_html": response.text
+                "message": "Tracking information retrieved",
+                "tracking_data": tracking_info
             }
         
-        # Return the tracking information we found
-        logger.info(f"Successfully extracted {len(tracking_info)} tracking data fields")
-        return {
-            "success": True,
-            "message": "Tracking information retrieved",
-            "tracking_data": tracking_info
-        }
+        # If we couldn't find structured data, return the raw content
+        logger.info("No structured tracking data found, returning raw content")
+        page_content = soup.get_text(separator='\n', strip=True)
+        
+        # Check if the raw content actually has some useful information
+        if len(page_content.strip()) > 20:  # Arbitrary length to ensure it's not just whitespace or a tiny error
+            return {
+                "success": True,
+                "message": "Retrieved tracking information as text",
+                "raw_content": page_content
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"No tracking information found for number {tracking_number}"
+            }
         
     except requests.exceptions.RequestException as e:
         logger.error(f"Error tracking ACPL cargo: {str(e)}")
