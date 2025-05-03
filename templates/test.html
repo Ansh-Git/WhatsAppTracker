@@ -73,9 +73,9 @@ document.getElementById('trackingForm').addEventListener('submit', async functio
                     resultHtml += `<p><strong>${key}:</strong> ${value}</p>`;
                 }
                 resultHtml += '</div>';
-            } else if (result.raw_text) {
-                // Display raw text
-                resultHtml += `<div class="mt-3"><pre>${result.raw_text}</pre></div>`;
+            } else if (result.raw_content) {
+                // Display raw content
+                resultHtml += `<div class="mt-3"><pre>${result.raw_content}</pre></div>`;
             } else {
                 resultHtml += '<p>Tracking information retrieved but no details available.</p>';
             }
