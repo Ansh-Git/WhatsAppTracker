@@ -230,6 +230,35 @@ def api_cleanup():
     # Here we're just returning a dummy response
     return jsonify({'success': False, 'error': 'Cleanup feature not implemented yet'}), 501
 
+@app.route('/api/test/track', methods=['POST'])
+def api_test_track():
+    """API endpoint for testing the tracking functionality directly"""
+    try:
+        data = request.json
+        if not data or 'tracking_number' not in data:
+            return jsonify({'success': False, 'message': 'Missing tracking number'}), 400
+            
+        tracking_number = data['tracking_number'].strip()
+        
+        # Import the tracking function
+        from acpl_tracker import track_acpl_cargo
+        
+        # Get tracking information
+        logger.info(f"Testing tracking for ACPL cargo number: {tracking_number}")
+        tracking_result = track_acpl_cargo(tracking_number)
+        
+        # Return raw tracking result
+        return jsonify({
+            'success': tracking_result.get('success', False),
+            'message': tracking_result.get('message', ''),
+            'tracking_data': tracking_result.get('tracking_data'),
+            'raw_text': tracking_result.get('raw_text')
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in test tracking: {str(e)}")
+        return jsonify({'success': False, 'message': f"Error: {str(e)}"}), 500
+
 # WhatsApp Webhook Endpoint
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():

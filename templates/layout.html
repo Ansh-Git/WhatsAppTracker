@@ -49,6 +49,11 @@
                                 <i class="fas fa-cog me-2"></i>Settings
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.path == '/test' %}active{% endif %}" href="{{ url_for('test') }}">
+                                <i class="fas fa-vial me-2"></i>Test Tracking
+                            </a>
+                        </li>
                     </ul>
                 </div>
             </div>
