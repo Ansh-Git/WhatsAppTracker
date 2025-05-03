@@ -574,3 +574,8 @@ def webhook_test():
             'headers': headers,
             'content_type': request.content_type
         })
+        
+@app.route('/webhook-simulator')
+def webhook_simulator():
+    """Page to simulate Twilio webhooks for testing"""
+    return render_template('webhook_test.html')
