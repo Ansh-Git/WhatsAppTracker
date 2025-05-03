@@ -533,3 +533,44 @@ def update_stats(contact, direction):
     # In a real implementation, this would be more complex to accurately track daily unique contacts
     
     db.session.commit()
+
+# Simple test webhook endpoint
+@app.route('/webhook-test', methods=['GET', 'POST'])
+def webhook_test():
+    """Simple endpoint for testing webhook connectivity"""
+    print(f"WEBHOOK-TEST: Received {request.method} request")
+    
+    if request.method == 'GET':
+        return jsonify({
+            'status': 'success',
+            'message': 'Webhook test endpoint is working - GET request received',
+            'query_params': dict(request.args)
+        })
+    
+    elif request.method == 'POST':
+        # Try to get form data
+        form_data = {}
+        try:
+            form_data = request.form.to_dict()
+        except:
+            pass
+            
+        # Try to get JSON data
+        json_data = {}
+        try:
+            json_data = request.json or {}
+        except:
+            pass
+            
+        # Get headers
+        headers = dict(request.headers)
+            
+        # Return all info for debugging
+        return jsonify({
+            'status': 'success',
+            'message': 'Webhook test endpoint is working - POST request received',
+            'form_data': form_data,
+            'json_data': json_data,
+            'headers': headers,
+            'content_type': request.content_type
+        })
