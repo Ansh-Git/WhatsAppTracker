@@ -262,45 +262,63 @@ def api_test_track():
 # WhatsApp Webhook Endpoint
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
+    # Log all incoming requests regardless of method
+    print(f"WEBHOOK REQUEST: Method={request.method}, Headers={dict(request.headers)}")
+    
     if request.method == 'GET':
         # For Meta WhatsApp Business API verification
+        print(f"WEBHOOK GET: Query params={request.args}")
         return verify_whatsapp_webhook(request)
     
     elif request.method == 'POST':
         # Process incoming webhook data
         try:
-            logger.debug("Received webhook POST request")
+            print("WEBHOOK POST: Received webhook POST request")
             
             # Check if this is a Twilio webhook (form data)
-            if request.form and 'Body' in request.form:
+            if request.form:
                 # Twilio webhook data comes as form data
                 data = request.form.to_dict()
-                logger.debug(f"Received Twilio webhook data: {data}")
+                print(f"WEBHOOK POST: Received form data: {data}")
+                
+                if 'Body' in data:
+                    print(f"WEBHOOK POST: Message content: {data['Body']}")
                 
                 # Verify that this is a genuine Twilio request
                 from twilio_api import verify_twilio_webhook_signature
                 if not verify_twilio_webhook_signature(request):
+                    print("WEBHOOK POST: Invalid Twilio webhook signature")
                     logger.warning("Invalid Twilio webhook signature")
                     return jsonify({'error': 'Invalid signature'}), 403
                 
             else:
-                # Meta WhatsApp format (JSON)
-                data = request.json
-                logger.debug(f"Received webhook data: {data}")
+                # Check if this is JSON data
+                try:
+                    # Meta WhatsApp format (JSON)
+                    data = request.json
+                    print(f"WEBHOOK POST: Received JSON data: {data}")
+                except:
+                    # If not JSON or form, try to get raw data
+                    print(f"WEBHOOK POST: No form or JSON data, raw data: {request.get_data()}")
+                    return jsonify({'error': 'Unsupported data format'}), 400
             
             # Process the incoming message
+            print("WEBHOOK POST: Processing incoming message")
             process_incoming_message(data)
             
             # For Twilio, return a TwiML response (XML)
             if request.form and 'Body' in request.form:
+                print("WEBHOOK POST: Returning 204 No Content for Twilio")
                 # Return a simple 204 No Content response
                 # We'll handle responses asynchronously to avoid Twilio's 10s timeout
                 return ('', 204)
             else:
                 # For other webhook formats, return JSON
+                print("WEBHOOK POST: Returning success JSON response")
                 return jsonify({'success': True})
                 
         except Exception as e:
+            print(f"WEBHOOK ERROR: {str(e)}")
             logger.error(f"Error processing webhook: {str(e)}")
             return jsonify({'error': str(e)}), 500
 
