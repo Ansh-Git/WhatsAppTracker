@@ -632,3 +632,26 @@ def render_setup():
     host = request.host_url.rstrip('/')
     webhook_url = f"{host}/webhook"
     return render_template('render_setup.html', webhook_url=webhook_url)
+
+@app.route('/ngrok-setup')
+def ngrok_setup():
+    """Information page for setting up Twilio with ngrok"""
+    # Get current ngrok URL from tunnels if available
+    try:
+        from pyngrok import ngrok
+        tunnels = ngrok.get_tunnels()
+        if tunnels:
+            # Use the first tunnel
+            public_url = tunnels[0].public_url
+            webhook_url = f"{public_url}/webhook"
+        else:
+            # No active tunnels, use current host
+            host = request.host_url.rstrip('/')
+            webhook_url = f"{host}/webhook"
+    except Exception as e:
+        logger.warning(f"Error getting ngrok tunnels: {e}")
+        # Fall back to current host
+        host = request.host_url.rstrip('/')
+        webhook_url = f"{host}/webhook"
+    
+    return render_template('ngrok_setup.html', webhook_url=webhook_url)

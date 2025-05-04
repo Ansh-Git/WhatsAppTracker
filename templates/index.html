@@ -64,11 +64,20 @@
                     <li>Start monitoring and analyzing your WhatsApp communication</li>
                 </ol>
                 <div class="alert alert-info mt-3">
-                    <h5><i class="fas fa-cloud me-2"></i>Deployed on Render?</h5>
-                    <p>If you've deployed this application on Render, visit our setup guide for configuring Twilio with your new deployment:</p>
-                    <a href="{{ url_for('render_setup') }}" class="btn btn-primary">
-                        <i class="fas fa-cog me-2"></i>Render Deployment Setup
-                    </a>
+                    <h5><i class="fas fa-cloud me-2"></i>Configure Your Deployment</h5>
+                    <p>Choose your deployment method to configure Twilio integration:</p>
+                    <div class="row mt-3">
+                        <div class="col-md-6 mb-2">
+                            <a href="{{ url_for('ngrok_setup') }}" class="btn btn-success w-100">
+                                <i class="fas fa-network-wired me-2"></i>Local Testing with Ngrok
+                            </a>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <a href="{{ url_for('render_setup') }}" class="btn btn-primary w-100">
+                                <i class="fas fa-cloud-upload-alt me-2"></i>Render Deployment Setup
+                            </a>
+                        </div>
+                    </div>
                 </div>
                 <p class="mt-3">Need help? Check the settings page for detailed setup instructions.</p>
             </div>
