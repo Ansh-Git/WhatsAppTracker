@@ -64,6 +64,46 @@ You can test the tracking functionality without WhatsApp by using the test inter
 - **Automation**: Keyword-based automated responses
 - **MessageStats**: Message statistics for the dashboard
 
+## Deployment on Render
+
+This application can be easily deployed on Render's free tier:
+
+### Using the Deploy to Render Button
+
+The easiest way to deploy this application is to click the "Deploy to Render" button below:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/yourusername/whatsapp-tracking-bot)
+
+1. Fork this repository to your GitHub account
+2. Update the Deploy to Render button URL in your README.md with your GitHub username
+3. Click the button and follow the instructions on Render to set up your application
+
+### Manual Deployment Steps
+
+1. Create a new account on [Render](https://render.com/) if you don't have one
+2. Fork this repository to your GitHub account
+3. Create a new Web Service in Render and connect it to your GitHub repository
+4. Use the following settings:
+   - Environment: Python
+   - Build Command: `pip install -r render-requirements.txt`
+   - Start Command: `gunicorn main:app`
+5. Set the following environment variables in Render:
+   - `TWILIO_ACCOUNT_SID`: Your Twilio Account SID
+   - `TWILIO_AUTH_TOKEN`: Your Twilio Auth Token
+   - `TWILIO_PHONE_NUMBER`: Your Twilio WhatsApp number
+   - `SESSION_SECRET`: A random string for session security
+6. Create a PostgreSQL database in Render:
+   - Go to Dashboard > New > PostgreSQL
+   - Connect it to your web service
+7. Once deployed, set up your Twilio webhook URL to point to:
+   `https://your-render-app.onrender.com/webhook`
+
+### Important Notes for Render Deployment
+
+1. Render's free tier PostgreSQL databases are automatically deleted after 90 days
+2. The free tier web service will spin down after periods of inactivity, which may cause a slight delay on the first request
+3. Your application will be publicly accessible at `https://your-app-name.onrender.com`
+
 ## License
 
 This project is provided as is, without warranty of any kind.

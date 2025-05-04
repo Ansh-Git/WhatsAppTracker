@@ -2,16 +2,13 @@ services:
   # A Flask web service
   - type: web
     name: whatsapp-tracking-bot
-    env: python
+    runtime: python
+    repo: https://github.com/yourusername/whatsapp-tracking-bot
     buildCommand: pip install -r render-requirements.txt
     startCommand: gunicorn main:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
-      - key: DATABASE_URL
-        fromDatabase:
-          name: whatsapp-tracking-db
-          property: connectionString
       - key: TWILIO_ACCOUNT_SID
         sync: false
       - key: TWILIO_AUTH_TOKEN
@@ -20,9 +17,12 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: whatsapp-tracking-db
+          property: connectionString
 
 databases:
   - name: whatsapp-tracking-db
     databaseName: whatsapp_tracking
-    user: whatsapp_tracking_user
-    plan: free
+    user: whatsapp_tracking
