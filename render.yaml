@@ -3,6 +3,7 @@ services:
   - type: web
     name: whatsapp-tracking-bot
     env: python
+    plan: free
     buildCommand: pip install -r render-requirements.txt
     startCommand: gunicorn main:app
     healthCheckPath: /webhook-test
