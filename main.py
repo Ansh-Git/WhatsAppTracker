@@ -1,5 +1,23 @@
 import os
 from app import app  # noqa: F401
+import datetime
+import pytz
+from flask import Response
+
+# Add a middleware to check if the current time is within service hours
+@app.before_request
+def check_service_hours():
+    # Get current time in IST
+    ist_timezone = pytz.timezone('Asia/Kolkata')
+    current_time = datetime.datetime.now(ist_timezone).time()
+    
+    # Check if current time is outside service hours (7 AM to 9 PM IST)
+    if not (datetime.time(7, 0) <= current_time <= datetime.time(21, 0)):
+        return Response(
+            "Service is currently offline. Operating hours are 7 AM to 9 PM IST. "
+            "Please try again during these hours.",
+            status=503
+        )
 import routes  # noqa: F401
 
 # Set up ngrok if the environment variable is set
