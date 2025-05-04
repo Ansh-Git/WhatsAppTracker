@@ -3,7 +3,7 @@ services:
   - type: web
     name: whatsapp-tracking-bot
     runtime: python
-    repo: https://github.com/yourusername/whatsapp-tracking-bot
+    repo: https://github.com/Ansh-Git/WhatsAppTracker.git
     buildCommand: pip install -r render-requirements.txt
     startCommand: gunicorn main:app
     envVars:

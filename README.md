@@ -72,7 +72,7 @@ This application is configured for one-click deployment on Render's free tier:
 
 The easiest way to deploy this application is to click the "Deploy to Render" button below:
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Ansh-Git/WhatsAppTracker.git)
 
 **Step-by-Step Instructions:**
 
