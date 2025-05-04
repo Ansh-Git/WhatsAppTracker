@@ -1,5 +1,5 @@
 {
   "name": "Start with ngrok",
-  "command": "python start_with_ngrok.py",
+  "command": "python -c \"import os; os.environ['USE_NGROK'] = 'true'; exec(open('main.py').read())\"",
   "environment": {}
 }
