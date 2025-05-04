@@ -1,0 +1,112 @@
+{% extends 'layout.html' %}
+
+{% block title %}Render Deployment Setup{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-body">
+                    <h1 class="card-title">Render Deployment Setup</h1>
+                    <p class="lead">Congratulations on deploying your WhatsApp Tracking Bot to Render!</p>
+                    
+                    <div class="alert alert-info">
+                        <h5 class="alert-heading">Your Webhook URL</h5>
+                        <p>Use the following URL in your Twilio WhatsApp settings:</p>
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" id="webhookUrl" value="{{ webhook_url }}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" id="copyBtn" 
+                                    onclick="copyToClipboard('webhookUrl')">
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h3>Twilio WhatsApp Setup Instructions</h3>
+                        </div>
+                        <div class="card-body">
+                            <ol class="list-group list-group-numbered mb-4">
+                                <li class="list-group-item">Log in to your <a href="https://www.twilio.com/login" target="_blank">Twilio Dashboard</a></li>
+                                <li class="list-group-item">Navigate to <strong>Messaging</strong> → <strong>Try it out</strong> → <strong>Send a WhatsApp message</strong></li>
+                                <li class="list-group-item">Connect your phone to the Twilio Sandbox by following the instructions</li>
+                                <li class="list-group-item">Go to <strong>Messaging</strong> → <strong>Settings</strong> → <strong>WhatsApp Sandbox Settings</strong></li>
+                                <li class="list-group-item">
+                                    Set the <strong>WHEN A MESSAGE COMES IN</strong> field to the webhook URL:
+                                    <code>{{ webhook_url }}</code>
+                                </li>
+                                <li class="list-group-item">Save your changes</li>
+                            </ol>
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h3>Testing Your Bot</h3>
+                        </div>
+                        <div class="card-body">
+                            <p>You can test your bot using these options:</p>
+                            
+                            <div class="mb-3">
+                                <h5>1. Send a Real WhatsApp Message</h5>
+                                <p>Once connected to the Twilio Sandbox, send a message from your WhatsApp:</p>
+                                <ul>
+                                    <li><code>TRACK 2504500644</code> - to test tracking functionality</li>
+                                    <li><code>HELP</code> - to see available commands</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <h5>2. Use the Webhook Simulator</h5>
+                                <p>Test without sending real messages:</p>
+                                <a href="/webhook-simulator" class="btn btn-primary">Open Webhook Simulator</a>
+                            </div>
+                            
+                            <div>
+                                <h5>3. Test Tracking Directly</h5>
+                                <p>Test just the tracking functionality:</p>
+                                <a href="/test" class="btn btn-outline-primary">Test Tracking</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <h5 class="alert-heading">Important Notes</h5>
+                        <p>Remember these limitations with Render and Twilio:</p>
+                        <ul class="mb-0">
+                            <li>Free Render web services sleep after periods of inactivity, which can cause a delay on the first request</li>
+                            <li>Free Render PostgreSQL databases are deleted after 90 days unless upgraded</li>
+                            <li>Twilio WhatsApp Sandbox is limited to approved templates for outbound messages in production</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <a href="/" class="btn btn-primary">Go to Dashboard</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function copyToClipboard(elementId) {
+        const copyText = document.getElementById(elementId);
+        copyText.select();
+        copyText.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(copyText.value);
+        
+        const copyBtn = document.getElementById('copyBtn');
+        const originalText = copyBtn.innerText;
+        copyBtn.innerText = 'Copied!';
+        
+        setTimeout(() => {
+            copyBtn.innerText = originalText;
+        }, 2000);
+    }
+</script>
+{% endblock %}

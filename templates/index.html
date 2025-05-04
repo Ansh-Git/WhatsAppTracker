@@ -63,7 +63,14 @@
                     <li>Create automations to respond to messages automatically</li>
                     <li>Start monitoring and analyzing your WhatsApp communication</li>
                 </ol>
-                <p>Need help? Check the settings page for detailed setup instructions.</p>
+                <div class="alert alert-info mt-3">
+                    <h5><i class="fas fa-cloud me-2"></i>Deployed on Render?</h5>
+                    <p>If you've deployed this application on Render, visit our setup guide for configuring Twilio with your new deployment:</p>
+                    <a href="{{ url_for('render_setup') }}" class="btn btn-primary">
+                        <i class="fas fa-cog me-2"></i>Render Deployment Setup
+                    </a>
+                </div>
+                <p class="mt-3">Need help? Check the settings page for detailed setup instructions.</p>
             </div>
         </div>
         

@@ -625,3 +625,10 @@ def webhook_test():
 def webhook_simulator():
     """Page to simulate Twilio webhooks for testing"""
     return render_template('webhook_test.html')
+
+@app.route('/render-setup')
+def render_setup():
+    """Information page for setting up Twilio after Render deployment"""
+    host = request.host_url.rstrip('/')
+    webhook_url = f"{host}/webhook"
+    return render_template('render_setup.html', webhook_url=webhook_url)

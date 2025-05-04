@@ -5,6 +5,14 @@ services:
     env: python
     buildCommand: pip install -r render-requirements.txt
     startCommand: gunicorn main:app
+    healthCheckPath: /webhook-test
+    # Open the render-setup page after deployment to see the webhook URL
+    domains:
+      - whatsapp-tracking-bot
+    routes:
+      - type: rewrite
+        source: /
+        destination: /
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
