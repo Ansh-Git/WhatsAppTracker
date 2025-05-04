@@ -1,0 +1,86 @@
+{% extends 'layout.html' %}
+
+{% block title %}Ngrok Setup{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center mt-5">
+        <div class="col-md-8">
+            <div class="card bg-dark text-light">
+                <div class="card-body">
+                    <h1 class="mb-4"><i class="fas fa-network-wired text-info me-2"></i>Ngrok Tunnel Setup</h1>
+                    <p class="lead">Your ngrok tunnel is active and ready to receive webhook requests.</p>
+                    
+                    <div class="alert alert-success mt-4">
+                        <h5><i class="fas fa-check-circle me-2"></i>Ngrok Tunnel Active</h5>
+                        <p>Your public webhook URL is now available. Use this URL in your Twilio WhatsApp settings.</p>
+                    </div>
+                    
+                    <div class="card mb-4 mt-4">
+                        <div class="card-header bg-info text-dark">
+                            <h5 class="mb-0">Your Webhook URL</h5>
+                        </div>
+                        <div class="card-body bg-dark">
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" id="webhookUrl" value="{{ webhook_url }}" readonly>
+                                <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('webhookUrl')">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                            </div>
+                            <div class="form-text text-light">Use this URL in the Twilio Console to receive WhatsApp messages</div>
+                        </div>
+                    </div>
+                    
+                    <h3 class="mt-4">How to Configure Twilio</h3>
+                    <ol class="mt-3">
+                        <li class="mb-2">Log in to your <a href="https://www.twilio.com/console" target="_blank" class="text-info">Twilio Console</a></li>
+                        <li class="mb-2">Navigate to <strong>Messaging</strong> → <strong>Try it out</strong> → <strong>Send a WhatsApp message</strong></li>
+                        <li class="mb-2">Enter your webhook URL in the <strong>When a message comes in</strong> field:<br>
+                            <code class="bg-dark p-2 d-inline-block mt-2 rounded">{{ webhook_url }}</code>
+                        </li>
+                        <li class="mb-2">Click <strong>Save</strong> to update your webhook configuration</li>
+                        <li class="mb-2">Test your setup by sending a WhatsApp message to your Twilio number with the command:
+                            <div class="bg-dark border p-3 rounded mt-2">
+                                <code>TRACK 2504500644</code>
+                            </div>
+                        </li>
+                    </ol>
+                    
+                    <div class="alert alert-warning mt-4">
+                        <h5><i class="fas fa-exclamation-triangle me-2"></i>Important Note</h5>
+                        <p>This ngrok tunnel will remain active as long as this application is running. If you stop or restart the application, you'll need to set up a new tunnel and update your Twilio webhook URL.</p>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{{ url_for('webhook_simulator') }}" class="btn btn-primary">
+                            <i class="fas fa-vial me-2"></i>Test with Webhook Simulator
+                        </a>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                            <i class="fas fa-tachometer-alt me-2"></i>Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function copyToClipboard(elementId) {
+        const element = document.getElementById(elementId);
+        element.select();
+        document.execCommand("copy");
+        
+        // Show a tooltip or alert
+        const button = element.nextElementSibling;
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        
+        setTimeout(() => {
+            button.innerHTML = originalText;
+        }, 2000);
+    }
+</script>
+{% endblock %}

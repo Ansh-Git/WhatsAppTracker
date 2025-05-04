@@ -1,5 +1,5 @@
 {
-  "name": "Start with ngrok",
-  "command": "python -c \"import os; os.environ['USE_NGROK'] = 'true'; exec(open('main.py').read())\"",
+  "name": "Ngrok Tunnel",
+  "command": "python get_ngrok_url.py",
   "environment": {}
 }
